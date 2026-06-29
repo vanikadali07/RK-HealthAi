@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="RK Health - AI Smart Patient Appointment & Medication Reminder System. Organize clinical visits, medication schedules, SMS notifications, and Generative AI visit summaries.">
+    <meta name="author" content="RK Health">
+    <title>RK Health - Patient Dashboard & Care Manager</title>
+    
+    <!-- CSS Dependencies -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <!-- Lock Screen Overlay -->
+    <div id="lock-screen" class="lock-screen">
+        <div class="lock-card">
+            <div class="lock-logo-container">
+                <div class="lock-logo">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                </div>
+                <h2 class="lock-title">RK Health</h2>
+                <p class="lock-subtitle">Patient Care & Record Portal</p>
+            </div>
+            
+            <div id="pin-display" class="pin-display">
+                <div class="pin-dot" id="dot-0"></div>
+                <div class="pin-dot" id="dot-1"></div>
+                <div class="pin-dot" id="dot-2"></div>
+                <div class="pin-dot" id="dot-3"></div>
+            </div>
+            
+            <div id="lock-error" class="lock-error">Invalid PIN. Try again.</div>
+            
+            <div class="keypad">
+                <button class="key-btn" onclick="pressKey('1')">1</button>
+                <button class="key-btn" onclick="pressKey('2')">2</button>
+                <button class="key-btn" onclick="pressKey('3')">3</button>
+                <button class="key-btn" onclick="pressKey('4')">4</button>
+                <button class="key-btn" onclick="pressKey('5')">5</button>
+                <button class="key-btn" onclick="pressKey('6')">6</button>
+                <button class="key-btn" onclick="pressKey('7')">7</button>
+                <button class="key-btn" onclick="pressKey('8')">8</button>
+                <button class="key-btn" onclick="pressKey('9')">9</button>
+                <button class="key-btn clear" onclick="clearPin()">C</button>
+                <button class="key-btn" onclick="pressKey('0')">0</button>
+                <button class="key-btn backspace" onclick="backspacePin()"><i class="fa-solid fa-delete-left"></i></button>
+            </div>
+            
+            <p style="font-size: 0.75rem; color: var(--text-muted);">Default PIN: <strong style="color: var(--primary)">1234</strong> (Change in Settings)</p>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- App Container -->
+    <div class="app-container">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                </div>
+                <span class="logo-text">RK Health</span>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a class="nav-item active" onclick="switchTab('dashboard', this)" id="nav-dashboard">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a class="nav-item" onclick="switchTab('appointments', this)" id="nav-appointments">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    <span>Appointments</span>
+                </a>
+                <a class="nav-item" onclick="switchTab('medications', this)" id="nav-medications">
+                    <i class="fa-solid fa-pills"></i>
+                    <span>Medications</span>
+                </a>
+                <a class="nav-item" onclick="switchTab('summaries', this)" id="nav-summaries">
+                    <i class="fa-solid fa-brain"></i>
+                    <span>Visit Summaries</span>
+                </a>
+                <a class="nav-item" onclick="switchTab('reports', this)" id="nav-reports">
+                    <i class="fa-solid fa-file-medical"></i>
+                    <span>Health Report</span>
+                </a>
+                <a class="nav-item" onclick="switchTab('settings', this)" id="nav-settings">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="avatar" id="user-avatar">DP</div>
+                    <div class="user-info">
+                        <div class="user-name" id="profile-name">Demo Patient</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">Active Profile</div>
+                    </div>
+                    <button class="lock-app-btn" onclick="lockApp()" title="Lock Application">
+                        <i class="fa-solid fa-lock"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            
+            <!-- Topbar Header -->
+            <header class="topbar">
+                <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                
+                <h1 class="page-title" id="page-header-title">Dashboard</h1>
+                
+                <div class="system-status">
+                    <div id="api-status-badge" class="status-badge active" title="Active Connection">
+                        <span class="status-dot"></span>
+                        <span id="api-status-text">Server Connected</span>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Views Viewport -->
+            <div class="content-viewport">
+                
+                <!-- 1. DASHBOARD VIEW -->
+                <section class="tab-panel active" id="dashboard-panel">
+                    <div class="dashboard-grid">
+                        <div class="stat-card cyan">
+                            <i class="fa-solid fa-calendar-days stat-icon"></i>
+                            <div class="stat-label">Appointments Today</div>
+                            <div class="stat-value" id="stat-appt-count">0</div>
+                            <div class="stat-trend up" id="stat-appt-trend"><i class="fa-solid fa-clock"></i> Next one scheduled today</div>
+                        </div>
+                        <div class="stat-card purple">
+                            <i class="fa-solid fa-prescription-bottle-med stat-icon"></i>
+                            <div class="stat-label">Pending Medications</div>
+                            <div class="stat-value" id="stat-med-count">0</div>
+                            <div class="stat-trend up" id="stat-med-trend"><i class="fa-solid fa-bell"></i> Need to be taken</div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fa-solid fa-brain stat-icon"></i>
+                            <div class="stat-label">AI Visit Summaries</div>
+                            <div class="stat-value" id="stat-summary-count">0</div>
+                            <div class="stat-trend neutral"><i class="fa-solid fa-circle-info"></i> Clinical logs saved</div>
+                        </div>
+                        <div class="stat-card purple">
+                            <i class="fa-solid fa-clipboard-check stat-icon"></i>
+                            <div class="stat-label">Medication Adherence</div>
+                            <div class="stat-value" id="stat-compliance-rate">0%</div>
+                            <div class="stat-trend up" id="stat-compliance-trend"><i class="fa-solid fa-circle-nodes"></i> Compliance tracking</div>
+                        </div>
+                    </div>
+                    
+                    <div class="summary-split">
+                        <div class="section-card">
+                            <div class="section-header">
+                                <h3 class="section-title"><i class="fa-solid fa-heart-pulse"></i> Quick Actions</h3>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr; gap: 1rem;">
+                                <button class="btn btn-primary" onclick="openModal('appointment-modal')">
+                                    <i class="fa-solid fa-calendar-plus"></i> Schedule New Appointment
+                                </button>
+                                <button class="btn btn-accent" onclick="openModal('medication-modal')">
+                                    <i class="fa-solid fa-plus"></i> Add New Medication
+                                </button>
+                                <button class="btn btn-secondary" onclick="switchTab('summaries', document.getElementById('nav-summaries'))">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> Generate AI Doctor Summary
+                                </button>
+                                <button class="btn btn-secondary" onclick="switchTab('reports', document.getElementById('nav-reports'))">
+                                    <i class="fa-solid fa-print"></i> Print Medical Report
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="section-card">
+                            <div class="section-header">
+                                <h3 class="section-title"><i class="fa-solid fa-clipboard-list"></i> Today's Schedule Checklist</h3>
+                            </div>
+                            <div id="today-schedule-checklist" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                <!-- Will be dynamically generated from scripts -->
+                                <p style="color: var(--text-muted); font-size: 0.9rem;">No appointments or medications logged today.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- 2. APPOINTMENTS VIEW -->
+                <section class="tab-panel" id="appointments-panel">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h3 class="section-title"><i class="fa-solid fa-calendar-alt"></i> Appointment Logs</h3>
+                            <button class="btn btn-primary btn-sm" onclick="openModal('appointment-modal')">
+                                <i class="fa-solid fa-plus"></i> New Appointment
+                            </button>
+                        </div>
+                        
+                        <!-- Search & Filter Controls -->
+                        <div class="controls-row">
+                            <div class="search-filter-group">
+                                <div class="search-input-wrapper">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <input type="text" id="filter-appt-search" class="form-control" placeholder="Search by Patient, Doctor or Title..." oninput="filterAppointments()">
+                                </div>
+                                <select id="filter-appt-status" class="form-control" onchange="filterAppointments()">
+                                    <option value="All">All Statuses</option>
+                                    <option value="Pending">Pending</option>
+                                    <option value="Checked In">Checked In</option>
+                                    <option value="Missed">Missed</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Appointments Table -->
+                        <div class="table-responsive">
+                            <table class="custom-table" id="appointments-table">
+                                <thead>
+                                    <tr>
+                                        <th>Patient Name</th>
+                                        <th>Doctor Name</th>
+                                        <th>Date & Time</th>
+                                        <th>Title & Notes</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="appointments-table-body">
+                                    <!-- Dynamic rows -->
+                                    <tr>
+                                        <td colspan="6" style="text-align: center; color: var(--text-muted);">Loading appointments...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- 3. MEDICATIONS VIEW -->
+                <section class="tab-panel" id="medications-panel">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h3 class="section-title"><i class="fa-solid fa-pills"></i> Medication Reminder List</h3>
+                            <button class="btn btn-accent btn-sm" onclick="openModal('medication-modal')">
+                                <i class="fa-solid fa-plus"></i> Add Medication
+                            </button>
+                        </div>
+                        
+                        <!-- Search Filter -->
+                        <div class="controls-row">
+                            <div class="search-filter-group">
+                                <div class="search-input-wrapper">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <input type="text" id="filter-med-search" class="form-control" placeholder="Search medicine name..." oninput="filterMedications()">
+                                </div>
+                                <select id="filter-med-timing" class="form-control" onchange="filterMedications()">
+                                    <option value="All">All Timings</option>
+                                    <option value="Morning">Morning</option>
+                                    <option value="Afternoon">Afternoon</option>
+                                    <option value="Evening">Evening</option>
+                                    <option value="Night">Night</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Medications Table -->
+                        <div class="table-responsive">
+                            <table class="custom-table" id="medications-table">
+                                <thead>
+                                    <tr>
+                                        <th>Medicine Name</th>
+                                        <th>Dosage</th>
+                                        <th>Timing</th>
+                                        <th>Phone Number</th>
+                                        <th>Adherence / Taken</th>
+                                        <th>SMS Reminder</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="medications-table-body">
+                                    <!-- Dynamic rows -->
+                                    <tr>
+                                        <td colspan="7" style="text-align: center; color: var(--text-muted);">Loading medications...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- 4. VISIT SUMMARIES (AI GENERATION) VIEW -->
+                <section class="tab-panel" id="summaries-panel">
+                    <div class="summary-split">
+                        
+                        <!-- Generator Form Card -->
+                        <div class="section-card">
+                            <div class="section-header">
+                                <h3 class="section-title"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Summary Generator</h3>
+                            </div>
+                            <form id="summary-generator-form" onsubmit="generateAISummary(event)">
+                                <div class="form-group">
+                                    <label class="form-label" for="summary-appointment-select">Select Doctor Visit Appointment</label>
+                                    <select id="summary-appointment-select" class="form-control" required>
+                                        <option value="" disabled selected>-- Select an Appointment --</option>
+                                        <!-- Dynamic load options -->
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="summary-raw-notes">Doctor's Visit Raw Notes / Prescription Logs</label>
+                                    <textarea id="summary-raw-notes" class="form-control" placeholder="Enter clinical notes, diagnoses, prescriptions, and instructions detailed during your doctor visit..." required></textarea>
+                                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                                        Paste unstructured clinical shorthand text. The AI will translate it into patient-friendly advice.
+                                    </p>
+                                </div>
+                                <button type="submit" class="btn btn-primary" id="btn-summary-generate" style="width: 100%;">
+                                    <i class="fa-solid fa-brain"></i> Generate Care Summary
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- Summary Preview Output -->
+                        <div class="summary-preview-card">
+                            <div class="summary-result-header">
+                                <span class="summary-meta-badge" id="summary-status-badge">Awaiting Input</span>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button class="icon-btn" onclick="copySummaryText()" title="Copy Summary Text" id="btn-summary-copy" disabled>
+                                        <i class="fa-regular fa-copy"></i>
+                                    </button>
+                                    <button class="icon-btn" onclick="printSingleSummary()" title="Print Summary" id="btn-summary-print" disabled>
+                                        <i class="fa-solid fa-print"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div id="summary-result-viewport" class="summary-result-content">
+                                <div class="summary-preview-empty" id="summary-empty-view">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                    <h4>No Summary Generated Yet</h4>
+                                    <p>Select an appointment and enter raw doctor notes on the left, then click Generate to create a structured clinical summary.</p>
+                                </div>
+                                <div id="summary-html-content" style="display: none;">
+                                    <!-- Structured Markdown content parsed as HTML -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- 5. HEALTH REPORT VIEW -->
+                <section class="tab-panel" id="reports-panel">
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;" class="no-print">
+                        <button class="btn btn-primary" onclick="printReport()">
+                            <i class="fa-solid fa-print"></i> Print Full Health Report
+                        </button>
+                    </div>
+                    
+                    <div class="report-frame" id="report-frame-content">
+                        <!-- Printable Paper Layout -->
+                        <div class="report-header">
+                            <div>
+                                <h1 class="report-clinic"><i class="fa-solid fa-heart-pulse"></i> RK Health Systems</h1>
+                                <span class="report-clinic-sub">Smart Healthcare Management & Patient Summary Portal</span>
+                            </div>
+                            <div class="report-meta">
+                                <div><strong>Document Type:</strong> Comprehensive Health Report</div>
+                                <div><strong>Date Generated:</strong> <span id="report-generated-date">-</span></div>
+                            </div>
+                        </div>
+                        
+                        <div class="report-patient-info">
+                            <div class="info-block">
+                                <label>Patient Name</label>
+                                <span id="report-patient-name">Demo Patient</span>
+                            </div>
+                            <div class="info-block">
+                                <label>Adherence Rate</label>
+                                <span id="report-patient-compliance">0%</span>
+                            </div>
+                            <div class="info-block">
+                                <label>Security Hash</label>
+                                <span style="font-family: 'Space Mono', monospace; font-size: 0.75rem;">SHA256-RKH782X</span>
+                            </div>
+                        </div>
+                        
+                        <div class="report-section">
+                            <h3 class="report-section-title">Scheduled Clinical Appointments</h3>
+                            <table class="report-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 25%;">Date & Time</th>
+                                        <th style="width: 25%;">Doctor Name</th>
+                                        <th style="width: 25%;">Title</th>
+                                        <th style="width: 25%;">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="report-appointments-tbody">
+                                    <!-- Dynamic rows -->
+                                    <tr>
+                                        <td colspan="4" style="text-align: center; color: var(--text-muted);">No appointment history logs found.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="report-section">
+                            <h3 class="report-section-title">Medication Records & Compliance Logs</h3>
+                            <table class="report-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 30%;">Medicine Name</th>
+                                        <th style="width: 25%;">Dosage</th>
+                                        <th style="width: 20%;">Timing</th>
+                                        <th style="width: 25%;">Adherence status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="report-medications-tbody">
+                                    <!-- Dynamic rows -->
+                                    <tr>
+                                        <td colspan="4" style="text-align: center; color: var(--text-muted);">No medication reminder logs found.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="report-section" id="report-summaries-section">
+                            <h3 class="report-section-title">Clinical AI Visit Summaries</h3>
+                            <div id="report-summaries-container">
+                                <!-- Dynamic block summaries -->
+                                <p style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">No clinical visit summaries generated yet.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="report-footer">
+                            <div>
+                                * Confidential patient medical file. Kept secure under SQLite DB local storage.
+                            </div>
+                            <div class="report-signature">
+                                <span>Doctor Attestation Signature</span>
+                                <div class="report-sig-line"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- 6. SETTINGS VIEW -->
+                <section class="tab-panel" id="settings-panel">
+                    <div class="settings-grid">
+                        
+                        <div class="section-card">
+                            <div class="section-header">
+                                <h3 class="section-title"><i class="fa-solid fa-user-lock"></i> Lock Screen Settings</h3>
+                            </div>
+                            <form id="settings-pin-form" onsubmit="updateSecurityPin(event)">
+                                <div class="form-group">
+                                    <label class="form-label" for="settings-current-pin">Current Security PIN</label>
+                                    <input type="password" id="settings-current-pin" class="form-control" maxlength="4" placeholder="Enter current PIN" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="settings-new-pin">New Security PIN (4 Digits)</label>
+                                    <input type="password" id="settings-new-pin" class="form-control" maxlength="4" placeholder="Enter new PIN" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fa-solid fa-key"></i> Update Security PIN
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <div class="section-card">
+                            <div class="section-header">
+                                <h3 class="section-title"><i class="fa-solid fa-id-card"></i> Patient Profile</h3>
+                            </div>
+                            <form id="settings-profile-form" onsubmit="updateProfileName(event)">
+                                <div class="form-group">
+                                    <label class="form-label" for="settings-profile-input">Patient Name</label>
+                                    <input type="text" id="settings-profile-input" class="form-control" placeholder="Enter patient name" required>
+                                </div>
+                                <button type="submit" class="btn btn-accent">
+                                    <i class="fa-solid fa-user-pen"></i> Update Profile Name
+                                </button>
+                            </form>
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="section-card" style="margin-top: 2rem;">
+                        <div class="section-header">
+                            <h3 class="section-title"><i class="fa-solid fa-server"></i> API Integrations configuration</h3>
+                        </div>
+                        <div style="background: rgba(245, 158, 11, 0.05); border: 1px solid var(--warning); border-radius: var(--border-radius-sm); padding: 1rem; margin-bottom: 1.5rem; display: flex; gap: 0.85rem; font-size: 0.85rem; line-height: 1.4;">
+                            <i class="fa-solid fa-circle-info" style="color: var(--warning); font-size: 1.25rem;"></i>
+                            <div>
+                                <strong>Local Storage API Configuration:</strong> Storing these keys allows the app to communicate with Twilio and Gemini directly from your local python process. If left blank, the system automatically falls back to interactive simulated SMS panels and a rule-based smart visit note summarizer.
+                            </div>
+                        </div>
+                        
+                        <form id="api-keys-form" onsubmit="saveAPIKeys(event)">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                                <div>
+                                    <h4 style="margin-bottom: 1rem; color: var(--primary);">Gemini AI Configuration</h4>
+                                    <div class="form-group">
+                                        <label class="form-label" for="settings-gemini-key">Gemini API Key</label>
+                                        <input type="password" id="settings-gemini-key" class="form-control" placeholder="AI key starting with AIza...">
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 style="margin-bottom: 1rem; color: var(--secondary);">Twilio SMS Configuration</h4>
+                                    <div class="form-group">
+                                        <label class="form-label" for="settings-twilio-sid">Twilio Account SID</label>
+                                        <input type="text" id="settings-twilio-sid" class="form-control" placeholder="AC...">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label" for="settings-twilio-token">Twilio Auth Token</label>
+                                        <input type="password" id="settings-twilio-token" class="form-control" placeholder="Token value...">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label" for="settings-twilio-phone">Twilio Phone Number</label>
+                                        <input type="text" id="settings-twilio-phone" class="form-control" placeholder="+1...">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-actions" style="border-top: 1px solid var(--border-glass); padding-top: 1.5rem; justify-content: flex-start;">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fa-solid fa-save"></i> Save Connections Settings
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="clearSavedAPIKeys()">
+                                    <i class="fa-solid fa-trash"></i> Reset to Simulation Mode
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+                
+            </div>
+        </main>
+    </div>
+
+    <!-- Appointment Add Modal -->
+    <div class="modal-overlay" id="appointment-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 class="modal-title">Schedule Doctor Appointment</h3>
+                <button class="modal-close" onclick="closeModal('appointment-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="appointment-form" onsubmit="submitAppointmentForm(event)">
+                    <div class="form-group">
+                        <label class="form-label" for="appt-patient-name">Patient Name</label>
+                        <input type="text" id="appt-patient-name" class="form-control" placeholder="Enter patient's full name" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="appt-doctor-name">Doctor Name</label>
+                        <input type="text" id="appt-doctor-name" class="form-control" placeholder="Dr. John Doe" required>
+                    </div>
+                    <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <label class="form-label" for="appt-date">Appointment Date</label>
+                            <input type="date" id="appt-date" class="form-control" required>
+                        </div>
+                        <div>
+                            <label class="form-label" for="appt-time">Appointment Time</label>
+                            <input type="time" id="appt-time" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="appt-title">Appointment Title / Department</label>
+                        <input type="text" id="appt-title" class="form-control" placeholder="e.g. Cardiological Checkup, Routine Examination" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="appt-notes">Notes / Symptoms</label>
+                        <textarea id="appt-notes" class="form-control" placeholder="Add specific signs, current complaints, or queries..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('appointment-modal')">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Schedule Event</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Medication Add Modal -->
+    <div class="modal-overlay" id="medication-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 class="modal-title">Add Medication Reminder</h3>
+                <button class="modal-close" onclick="closeModal('medication-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="medication-form" onsubmit="submitMedicationForm(event)">
+                    <div class="form-group">
+                        <label class="form-label" for="med-name">Medicine Name</label>
+                        <input type="text" id="med-name" class="form-control" placeholder="e.g. Paracetamol, Metformin" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="med-dosage">Dosage Instructions</label>
+                        <input type="text" id="med-dosage" class="form-control" placeholder="e.g. 500mg, 1 tablet, 5ml" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="med-timing">Daily Frequency Timing</label>
+                        <select id="med-timing" class="form-control" required>
+                            <option value="" disabled selected>-- Select Scheduled Time --</option>
+                            <option value="Morning">Morning (Breakfast)</option>
+                            <option value="Afternoon">Afternoon (Lunch)</option>
+                            <option value="Evening">Evening (Teatime)</option>
+                            <option value="Night">Night (Dinner/Bedtime)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="med-phone">Twilio Target Phone Number</label>
+                        <input type="tel" id="med-phone" class="form-control" placeholder="e.g. +919876543210 or +12345678900" required>
+                        <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.25rem;">
+                            Include country code (e.g. +91 or +1) for SMS reminders to route successfully.
+                        </p>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('medication-modal')">Cancel</button>
+                        <button type="submit" class="btn btn-accent">Save Reminder</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Simulated SMS Modal Overlay -->
+    <div class="modal-overlay" id="sms-sim-modal">
+        <div class="modal-container sms-sim-dialog">
+            <div class="sms-sim-header">
+                <i class="fa-solid fa-mobile-screen-button"></i>
+                <span>Simulated SMS Sent</span>
+            </div>
+            <div class="sms-sim-body">
+                <div class="phone-screen">
+                    <div class="sms-bubble" id="sms-sim-bubble">
+                        <!-- Filled by JS -->
+                    </div>
+                    <div class="phone-meta" id="sms-sim-time">Today, 12:00 PM</div>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1.5rem; text-align: center;">
+                    To: <strong id="sms-sim-phone" style="color: var(--warning)">+919876543210</strong>
+                </div>
+                <button class="btn btn-secondary" style="width: 100%;" onclick="closeModal('sms-sim-modal')">Acknowledge</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Logic Scripts -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
